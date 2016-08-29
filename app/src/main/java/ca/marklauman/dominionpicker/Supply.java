@@ -9,6 +9,9 @@ import android.os.Parcelable;
 import ca.marklauman.dominionpicker.database.TableCard;
 import ca.marklauman.dominionpicker.database.TableSupply;
 
+// TODO: create some kind of collection  (like cardcollection) this could be the base of a drafting pack
+//       supply can reuse its code too
+
 /** Contains all information about a supply set.
  *  @author Mark Lauman                       */
 public class Supply implements Parcelable {

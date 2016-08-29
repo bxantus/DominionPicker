@@ -34,6 +34,11 @@ import ca.marklauman.tools.Utils;
 import ca.marklauman.dominionpicker.userinterface.recyclerview.AdapterCardsDismiss;
 import ca.marklauman.tools.recyclerview.ListDivider;
 
+// TODO: extend this activity, or create new one based on it
+//       use small supply-s to represent one drafting sequence (for. ex 3 cards)
+//       the card adapter should contain also a Pick button as well.
+//       After a pick is done, a new supply should be shown
+
 /** Activity for displaying the supply piles for a new game.
  *  @author Mark Lauman */
 public class ActivitySupply extends AppCompatActivity
