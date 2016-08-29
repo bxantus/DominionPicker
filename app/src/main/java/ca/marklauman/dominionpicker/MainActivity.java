@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity
         String[] headers = getResources().getStringArray(R.array.navNames);
         navAdapt = new ExpandedArrayAdapter<>(this, R.layout.nav_drawer_item, headers);
         navAdapt.setIcons(R.drawable.ic_core_checkbox, R.drawable.ic_card,
-                          R.drawable.ic_cards, R.drawable.ic_action_market);
+                          R.drawable.ic_cards, R.drawable.ic_action_market, R.drawable.ic_core_code);
         navAdapt.setSelBack(R.color.list_item_sel);
         ListView navList = (ListView) vDrawer.findViewById(R.id.drawer_list);
         navList.setAdapter(navAdapt);
@@ -201,6 +201,10 @@ public class MainActivity extends AppCompatActivity
                     break;
             case 3: active = new FragmentMarket();
                     t.replace(R.id.content_frame, active);
+                    break;
+            case 4: active = new FragmentDrafter();
+                    t.replace(R.id.content_frame, active);
+                    vSubmit.show();
                     break;
         }
         t.commit();

@@ -35,6 +35,8 @@
     <string name="market_pass">Pass</string>
     <string name="market_sold_out">Sold Out!</string>
 
+    <string name="drafter_title">Drafter</string>
+
     <string name="supply_no_name">Your Picks!</string>
     <string name="supply_colonies">Use Colonies &amp; Platinum</string>
     <string name="supply_shelters">Use Shelters</string>
@@ -48,6 +50,7 @@
         <item>@string/picker</item>
         <item>@string/games</item>
         <item>@string/market_title</item>
+        <item>@string/drafter_title</item>
     </string-array>
 
     <string-array name="historyTypes">
