@@ -1,59 +1,37 @@
 package ca.marklauman.dominionpicker;
 
-import android.content.ContentValues;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.AsyncTask;
-import android.support.v4.content.LocalBroadcastManager;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 
-import ca.marklauman.dominionpicker.database.DataDb;
+import android.support.annotation.Nullable;
 import ca.marklauman.dominionpicker.database.Provider;
 import ca.marklauman.dominionpicker.database.TableCard;
 import ca.marklauman.dominionpicker.settings.Pref;
-import ca.marklauman.tools.Utils;
-
-/** This task is used to shuffle new supplies.
- *  It reads the current setting configuration when called, and attempts to create a supply
- *  with the available cards.
- *  The result of the shuffle is communicated to the main activity with broadcast intents.
- *  @author Mark Lauman */
-class SupplyShuffler extends AsyncTask<Void, Void, Void> {
-
-    /** When the shuffler is done, an intent of this type broadcasts
-     *  the results back to the activity.                         */
-    public static final String MSG_INTENT = "ca.marklauman.dominionpicker.shuffler";
-    /** The extra in the result intent containing the result id.
-     *  Will be a constant defined by this class starting with "RES_" */
-    public static final String MSG_RES = "result";
-    /** Extra containing card shortfall in the event of {@link #RES_MORE}.
-     *  String formatted as "X/Y" cards.  */
-    public static final String MSG_SHORT = "shortfall";
-    /** The extra containing the supply id. Only available on {@link #RES_OK}. */
-    public static final String MSG_SUPPLY_ID ="supply";
-
-    /** Shuffle succeeded. Supply available in {@link #MSG_SUPPLY_ID} */
-    public static final int RES_OK = 0;
-    /** Shuffle failed. No young witch targets. */
-    public static final int RES_NO_YW = 1;
-    /** Shuffle failed. Insufficient kingdom cards.
-     *  Shortfall in {@link #MSG_SHORT}. */
-    public static final int RES_MORE = 2;
-    /** Shuffle cancelled by outside source. */
-    @SuppressWarnings("WeakerAccess")
-    public static final int RES_CANCEL = 100;
 
 
+/**
+ * Base functionality included to shuffle cards
+ */
+class SupplyShuffler {
+    enum ShuffleResult {
+        SUCCESS,
+        CANCELLED,
+        FAILED
+    }
 
-    @Override
-    protected Void doInBackground(Void... ignored) {
-        // Create the supply we will populate, and do a check for minKingdoms == 0
-        ShuffleSupply supply = new ShuffleSupply();
+
+    /**
+     * Fill the provided supply with cards, based on user settings (selected card sets, filtered cards etc..)
+     * @param supply the supply to fill. The supply specifies the number of cards and special cards required
+     * @param task optional. check if this task is cancelled for a premature return
+     * @return SUCCESS when everything was ok, CANCELLED is task was cancelled, FAILED if shuffling failed
+     */
+    static ShuffleResult FillSupply(ShuffleSupply supply,  @Nullable AsyncTask<?, ?, ?> task) {
         if(!supply.needsKingdom())
-            return successfulResult(supply);
+            return ShuffleResult.SUCCESS;
 
         // load applicable filters.
         SharedPreferences pref = Pref.get(Pref.getAppContext());
@@ -63,11 +41,11 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
 
         // Load the required cards into the supply
         if(0 < filt_req.length())
-            loadCards(supply, joinFilters(filt_pre, TableCard._ID+" IN ("+filt_req+")"), true);
-        if(isCancelled())
-            return cancelResult();
+            loadCards(supply, joinFilters(filt_pre, TableCard._ID+" IN ("+filt_req+")"), true, task);
+        if(task != null && task.isCancelled())
+            return ShuffleResult.CANCELLED;
         if (!supply.needsKingdom())
-            return successfulResult(supply);
+            return ShuffleResult.SUCCESS;
 
         // Filter out both required and excluded cards
         String filt = filt_req+filt_card;
@@ -77,24 +55,12 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
             filt = TableCard._ID+" NOT IN ("+filt+")";
 
         // Shuffle the remaining cards into the supply
-        loadCards(supply, joinFilters(filt_pre, filt), false);
-        if(isCancelled())
-            return cancelResult();
+        loadCards(supply, joinFilters(filt_pre, filt), false, task);
+        if(task != null && task.isCancelled())
+            return ShuffleResult.CANCELLED;
         if (!supply.needsKingdom())
-            return successfulResult(supply);
-
-        // Shuffle has failed.
-        Intent msg = new Intent(MSG_INTENT);
-        int shortfall = supply.getShortfall();
-        // Shuffle failed because there were no bane cards for the young witch
-        if(supply.waitingForBane() && shortfall == 1) {
-            msg.putExtra(MSG_RES, RES_NO_YW);
-            return sendMsg(msg);
-        } else {
-            msg.putExtra(MSG_RES, RES_MORE);
-            msg.putExtra(MSG_SHORT, supply.minKingdom-shortfall+"/"+supply.minKingdom);
-            return sendMsg(msg);
-        }
+            return ShuffleResult.SUCCESS;
+        else return ShuffleResult.FAILED;
     }
 
 
@@ -131,7 +97,7 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
      *  @param filter The filter for the cards you wish to add.
      *  @param cardsRequired True if all matching cards must be in the supply.
      *  If this is false, cards will be added to the supply until it has enough kingdom cards. */
-    private void loadCards(ShuffleSupply s, String filter, boolean cardsRequired) {
+    static private void loadCards(ShuffleSupply s, String filter, boolean cardsRequired,  @Nullable AsyncTask<?, ?, ?> task) {
         // Query the cards in the database
         Cursor c = Pref.getAppContext()
                        .getContentResolver()
@@ -151,7 +117,7 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
 
             c.moveToPosition(-1);
             while(c.moveToNext() && (cardsRequired || s.needsKingdom())) {
-                if(isCancelled())
+                if(task != null && task.isCancelled())
                     return;
 
                 // We handle special and kingdom cards differently (specials first)
@@ -165,52 +131,8 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
         }
     }
 
-
-    /** Broadcast a given message back to the activity */
-    @SuppressWarnings("SameReturnValue")
-    private Void sendMsg(Intent msg) {
-        try {
-            LocalBroadcastManager.getInstance(Pref.getAppContext())
-                                 .sendBroadcast(msg);
-        } catch(Exception ignored) {}
-        return null;
-    }
-
-
-    /** The shuffle was cancelled prematurely. */
-    private Void cancelResult() {
-        Intent cancel = new Intent(MSG_INTENT);
-        cancel.putExtra(MSG_RES, RES_CANCEL);
-        return sendMsg(cancel);
-    }
-
-
-    /** Generating the supply was successful.
-     *  Write the result into the history database and tell the app its id number */
-    private Void successfulResult(ShuffleSupply supply) {
-        // Insert the new supply
-        long time = Calendar.getInstance().getTimeInMillis();
-        ContentValues values = new ContentValues();
-        values.putNull(DataDb._H_NAME);
-        values.put(DataDb._H_TIME,      time);
-        values.put(DataDb._H_CARDS,     Utils.join(",", supply.getCards()));
-        values.put(DataDb._H_BANE,      supply.getBane());
-        values.put(DataDb._H_HIGH_COST, supply.high_cost);
-        values.put(DataDb._H_SHELTERS,  supply.shelters);
-        Pref.getAppContext()
-            .getContentResolver()
-            .insert(Provider.URI_HIST, values);
-
-        // let the listeners know the result
-        Intent msg = new Intent(MSG_INTENT);
-        msg.putExtra(MSG_RES, RES_OK);
-        msg.putExtra(MSG_SUPPLY_ID, time);
-        return sendMsg(msg);
-    }
-
-
     /** Represents a supply in the process of being shuffled. */
-    private class ShuffleSupply {
+    static class ShuffleSupply {
         /** Possible value of {@link #baneStatus}. There is no young witch in the supply. */
         private static final int BANE_INACTIVE = 0;
         /** Possible value of {@link #baneStatus}.
@@ -243,10 +165,9 @@ class SupplyShuffler extends AsyncTask<Void, Void, Void> {
         private long bane = -1L;
 
 
-        public ShuffleSupply() {
-            SharedPreferences prefs = Pref.get(Pref.getAppContext());
-            minKingdom = prefs.getInt(Pref.LIMIT_SUPPLY, 10);
-            maxSpecial = prefs.getInt(Pref.LIMIT_EVENTS, 2);
+        public ShuffleSupply(int numKingdoms, int numSpecials) {
+            minKingdom = numKingdoms;
+            maxSpecial = numSpecials;
             kingdom = new ArrayList<>(minKingdom);
             special = new ArrayList<>(maxSpecial);
             costCard = (int)(Math.random() * minKingdom)+1;

@@ -260,13 +260,13 @@ public class MainActivity extends AppCompatActivity
     private class ShuffleManager extends BroadcastReceiver
                                  implements View.OnClickListener {
         /** The shuffler */
-        private SupplyShuffler shuffler;
+        private SupplyShufflerTask shuffler;
 
         public ShuffleManager() {
             super();
             shuffler = null;
             LocalBroadcastManager.getInstance(getActivity())
-                    .registerReceiver(this, new IntentFilter(SupplyShuffler.MSG_INTENT));
+                    .registerReceiver(this, new IntentFilter(SupplyShufflerTask.MSG_INTENT));
         }
 
         @Override
@@ -281,22 +281,22 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onReceive(Context context, Intent intent) {
             shuffler = null;
-            int res = intent.getIntExtra(SupplyShuffler.MSG_RES, -100);
+            int res = intent.getIntExtra(SupplyShufflerTask.MSG_RES, -100);
             String msg;
             switch(res) {
-                case SupplyShuffler.RES_OK:
+                case SupplyShufflerTask.RES_OK:
                     Intent showSupply = new Intent(getActivity(), ActivitySupply.class);
                     showSupply.putExtra(ActivitySupply.PARAM_HISTORY_ID,
-                                        intent.getLongExtra(SupplyShuffler.MSG_SUPPLY_ID, -1));
+                                        intent.getLongExtra(SupplyShufflerTask.MSG_SUPPLY_ID, -1));
                     startActivity(showSupply);
                     return;
-                case SupplyShuffler.RES_MORE:
+                case SupplyShufflerTask.RES_MORE:
                     msg = String.format(getString(R.string.more_k),
-                                        intent.getStringExtra(SupplyShuffler.MSG_SHORT));
+                                        intent.getStringExtra(SupplyShufflerTask.MSG_SHORT));
                     Toast.makeText(getActivity(), msg, Toast.LENGTH_LONG)
                          .show();
                     return;
-                case SupplyShuffler.RES_NO_YW:
+                case SupplyShufflerTask.RES_NO_YW:
                     Toast.makeText(getActivity(), R.string.yw_no_bane, Toast.LENGTH_LONG)
                          .show();
                     return;
@@ -308,7 +308,7 @@ public class MainActivity extends AppCompatActivity
          *  Also cancels any shuffles in progress. */
         public void startShuffle() {
             cancelShuffle();
-            shuffler = new SupplyShuffler();
+            shuffler = new SupplyShufflerTask();
             shuffler.execute();
         }
 
