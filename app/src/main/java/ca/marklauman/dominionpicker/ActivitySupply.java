@@ -257,18 +257,7 @@ public class ActivitySupply extends AppCompatActivity
             vLoading.setVisibility(View.VISIBLE);
             adapter.changeCursor(null);
 
-            // Basic loader
-            CursorLoader c = new CursorLoader(getActivity());
-            c.setUri(Provider.URI_CARD_ALL);
-            c.setProjection(AdapterCardsDismiss.COLS_USED);
-            c.setSortOrder(Pref.cardSort(ActivitySupply.this));
-
-            // Selection string (sql WHERE clause)
-            // _id IN (1,2,3,4)
-            String cards = TableCard._ID+" IN ("+ Utils.join(",",supply.cards)+")";
-            c.setSelection("("+cards+") AND "+ Pref.languageFilter(ActivitySupply.this));
-
-            return c;
+            return CardCollection.createLoader(new CardCollection(supply.cards), getActivity());
         }
 
 
