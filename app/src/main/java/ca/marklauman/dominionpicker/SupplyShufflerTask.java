@@ -105,7 +105,7 @@ public class SupplyShufflerTask extends AsyncTask<Void, Void, Void> {
 
     /** Broadcast a given message back to the activity */
     @SuppressWarnings("SameReturnValue")
-    private Void sendMsg(Intent msg) {
+    public static Void sendMsg(Intent msg) {
         try {
             LocalBroadcastManager.getInstance(Pref.getAppContext())
                     .sendBroadcast(msg);

@@ -1,5 +1,7 @@
 package ca.marklauman.dominionpicker;
 
+import android.content.ContentValues;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.AsyncTask;
@@ -8,6 +10,7 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,11 +18,15 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import ca.marklauman.dominionpicker.database.DataDb;
 import ca.marklauman.dominionpicker.database.LoaderId;
+import ca.marklauman.dominionpicker.database.Provider;
 import ca.marklauman.dominionpicker.settings.Pref;
 import ca.marklauman.dominionpicker.userinterface.recyclerview.AdapterCards;
+import ca.marklauman.tools.Utils;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -39,6 +46,7 @@ public class FragmentDrafter extends Fragment implements AdapterCards.Listener{
 
         cardsAdapter = new AdapterCards(cardList);
         cardList.setAdapter(cardsAdapter);
+        cardList.setLayoutManager(new LinearLayoutManager(getContext()));
         // listen for card clicks
         cardsAdapter.setListener(this);
         startButton.setOnClickListener(new View.OnClickListener() {
@@ -85,15 +93,32 @@ public class FragmentDrafter extends Fragment implements AdapterCards.Listener{
 
     void onCandidateSelected(int idx) {
         // add selected to the result supply
-        draftResults.add(draftCandidates.cards.get(idx));
+        draftResults.add(cardsAdapter.getItemId(idx));
+        cardsAdapter.changeCursor(null);
 
         // TODO: update draft progress display
         // check if all cards are drafted
         if (draftResults.size() == numKingdoms) {
-            // TODO: notify app that a new supply is ready => save to history, start supply activity
+            // TODO: extract common notification code (currently this is copied from SupplyShufflerTask
+            long time = Calendar.getInstance().getTimeInMillis();
+            ContentValues values = new ContentValues();
+            values.putNull(DataDb._H_NAME);
+            values.put(DataDb._H_TIME,      time);
+            values.put(DataDb._H_CARDS,     Utils.join(",", draftResults));
+            values.put(DataDb._H_BANE,      -1);
+            values.put(DataDb._H_HIGH_COST, false);
+            values.put(DataDb._H_SHELTERS,  false);
+            Pref.getAppContext()
+                    .getContentResolver()
+                    .insert(Provider.URI_HIST, values);
+
+            // let the listeners know the result
+            Intent msg = new Intent(SupplyShufflerTask.MSG_INTENT);
+            msg.putExtra(SupplyShufflerTask.MSG_RES, SupplyShufflerTask.RES_OK);
+            msg.putExtra(SupplyShufflerTask.MSG_SUPPLY_ID, time);
+            SupplyShufflerTask.sendMsg(msg);
         } else { // if not, show the next 3 cards
             // TODO: empty candidate list, while loading (or freeze it)
-            cardsAdapter.changeCursor(null);
             draftIndex++;
             nextDraftCandidates();
         }
@@ -125,7 +150,7 @@ public class FragmentDrafter extends Fragment implements AdapterCards.Listener{
 
             final int numKingdomsToDraft = numKingdoms * cardsToDraft;
             final int numSpecial = 0; // TODO: decide how to draft special cards (events/landmarks), have to check the rules
-            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdoms, numSpecial);
+            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numSpecial);
 
             SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
             if (result == SupplyShuffler.ShuffleResult.SUCCESS) return supply;
