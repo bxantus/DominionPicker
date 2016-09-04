@@ -60,7 +60,7 @@ public class FragmentDrafter extends Fragment {
             final int numSpecial = 0; // TODO: decide how to draft special cards (events/landmarks), have to check the rules
             SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdoms, numSpecial);
 
-            SupplyShuffler.ShuffleResult result = SupplyShuffler.FillSupply(supply, this);
+            SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
             if (result == SupplyShuffler.ShuffleResult.SUCCESS) return supply;
             else return null;
         }

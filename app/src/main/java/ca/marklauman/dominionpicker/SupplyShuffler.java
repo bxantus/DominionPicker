@@ -29,7 +29,7 @@ class SupplyShuffler {
      * @param task optional. check if this task is cancelled for a premature return
      * @return SUCCESS when everything was ok, CANCELLED is task was cancelled, FAILED if shuffling failed
      */
-    static ShuffleResult FillSupply(ShuffleSupply supply,  @Nullable AsyncTask<?, ?, ?> task) {
+    static ShuffleResult fillSupply(ShuffleSupply supply, @Nullable AsyncTask<?, ?, ?> task) {
         if(!supply.needsKingdom())
             return ShuffleResult.SUCCESS;
 

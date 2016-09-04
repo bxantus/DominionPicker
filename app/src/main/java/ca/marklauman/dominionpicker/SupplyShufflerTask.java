@@ -51,7 +51,7 @@ public class SupplyShufflerTask extends AsyncTask<Void, Void, Void> {
         final int maxSpecial = pref.getInt(Pref.LIMIT_EVENTS, 2);
         ShuffleSupply supply = new ShuffleSupply(minKingdom, maxSpecial);
 
-        ShuffleResult result = SupplyShuffler.FillSupply(supply, this);
+        ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
         switch (result)
         {
             case SUCCESS:   return successfulResult(supply);
