@@ -4,6 +4,14 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent">
 
+    <!-- TODO: move it to the DrafterActivity, put here options instead: cards/draft and to use landmarks or not-->
+    <android.support.v7.widget.RecyclerView
+            android:id="@android:id/list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="fill_vertical"
+             />
+
     <Button
             android:id="@+id/drafting_start"
             android:layout_width="match_parent"
