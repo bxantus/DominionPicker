@@ -31,6 +31,7 @@ public abstract class LoaderId {
     public static final int RULES_DEBT = 13;
     /** The card info screen's loader */
     public static final int INFO_CARD = 14;
-    /** The drafter's card loader */
-    public static final int DRAFT_CARDS = 15;
+    /** The drafter's card loader for choices and picks */
+    public static final int DRAFT_CARD_CHOICES = 15;
+    public static final int DRAFT_CARD_PICKS = 16;
 }

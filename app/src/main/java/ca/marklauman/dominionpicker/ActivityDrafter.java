@@ -12,6 +12,7 @@ import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.widget.TextView;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import ca.marklauman.dominionpicker.database.DataDb;
@@ -29,9 +30,11 @@ import java.util.List;
  * @author Botond Xantus
  */
 public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.Listener {
-    @BindView(android.R.id.list)
-    RecyclerView cardList;
-    private AdapterCards cardsAdapter;
+    @BindView(R.id.list_choices) RecyclerView cardChoices;
+    @BindView(R.id.list_picks) RecyclerView cardPicks;
+    @BindView(R.id.pick_progress) TextView textPickProgress;
+    private AdapterCards choicesAdapter;
+    private AdapterCards picksAdapter;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -40,11 +43,15 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         setContentView(R.layout.activity_drafter);
         ButterKnife.bind(this);
 
-        cardsAdapter = new AdapterCards(cardList);
-        cardList.setAdapter(cardsAdapter);
-        cardList.setLayoutManager(new LinearLayoutManager(this));
+        choicesAdapter = new AdapterCards(cardChoices);
+        cardChoices.setAdapter(choicesAdapter);
+        cardChoices.setLayoutManager(new LinearLayoutManager(this));
         // listen for card clicks
-        cardsAdapter.setListener(this);
+        choicesAdapter.setListener(this);
+
+        picksAdapter = new AdapterCards(cardPicks);
+        cardPicks.setAdapter(picksAdapter);
+        cardPicks.setLayoutManager(new LinearLayoutManager(this));
 
         // start shuffling of DRAFT_NUMBER_OF_CHOICES * kingdom cards required
         cardsToDraft = Pref.get(this).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
@@ -55,6 +62,12 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
         draftResults = new ArrayList<>();
         draftIndex = 0;
+
+        updatePickProgress();
+    }
+
+    private void updatePickProgress() {
+        textPickProgress.setText(String.format("(%d/%d)", draftIndex, numKingdoms));
     }
 
     final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
@@ -71,7 +84,16 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     void nextDraftCandidates() {
         // show the next 3 cards of the result
-        getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARDS, null, new CardLoaderCallbacks());
+        getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_CHOICES, null, new LoaderManager.LoaderCallbacks<Cursor>() {
+            @Override
+            public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+                final int rangeStart = draftIndex * cardsToDraft;
+                draftCandidates = draftSource.subCollection(rangeStart, rangeStart + cardsToDraft);
+                return CardCollection.createLoader(draftCandidates, ActivityDrafter.this);
+            }
+            @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) { choicesAdapter.changeCursor(data); }
+            @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop */ }
+        });
     }
 
     @Override
@@ -81,10 +103,9 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     void onCandidateSelected(int idx) {
         // add selected to the result supply
-        draftResults.add(cardsAdapter.getItemId(idx));
-        cardsAdapter.changeCursor(null);
+        draftResults.add(choicesAdapter.getItemId(idx));
+        choicesAdapter.changeCursor(null);
 
-        // TODO: update draft progress display
         // check if all cards are drafted
         if (draftResults.size() == numKingdoms) {
             // TODO: extract common notification code (currently this is copied from SupplyShufflerTask
@@ -108,29 +129,16 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
             // drafter is done, remove it from activity stack
             finish();
-        } else { // if not, show the next 3 cards
-            // TODO: empty candidate list, while loading (or freeze it)
+        } else { // if not, show the next N cards
             draftIndex++;
             nextDraftCandidates();
-        }
-    }
-
-    private class CardLoaderCallbacks implements LoaderManager.LoaderCallbacks<Cursor> {
-        @Override
-        public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-            final int rangeStart = draftIndex * cardsToDraft;
-            draftCandidates = draftSource.subCollection(rangeStart, rangeStart + cardsToDraft);
-            return CardCollection.createLoader(draftCandidates, ActivityDrafter.this);
-        }
-
-        @Override
-        public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-            cardsAdapter.changeCursor(data);
-        }
-
-        @Override
-        public void onLoaderReset(Loader<Cursor> loader) {
-            // nop
+            updatePickProgress();
+            // update picks
+            getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_PICKS, null, new LoaderManager.LoaderCallbacks<Cursor>() {
+                @Override public Loader<Cursor> onCreateLoader(int id, Bundle args) { return CardCollection.createLoader(new CardCollection(draftResults), ActivityDrafter.this);  }
+                @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) { picksAdapter.changeCursor(data); }
+                @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop*/  }
+            });
         }
     }
 
