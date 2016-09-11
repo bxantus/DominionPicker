@@ -5,23 +5,19 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent">
 
-    <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:text="Settings"
-            />
+
     <ca.marklauman.tools.preferences.SmallNumberPreference
             android:layout_height="wrap_content"
             android:layout_width="match_parent"
             android:key="draft_number_of_choices"
             android:text="Number of choices"
+            android:id="@+id/pref_number_of_choices"
     />
     <CheckBox
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Reshuffle before each pick"
-            android:id="@+id/cbReshuffle"
+            android:id="@+id/cb_reshuffle"
             android:layout_marginLeft="10dp"/>
     <Button
             android:id="@+id/drafting_start"

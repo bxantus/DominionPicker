@@ -9,8 +9,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import ca.marklauman.dominionpicker.settings.Pref;
+import ca.marklauman.tools.preferences.SmallNumberPreference;
 
 /**
  * Fragment representing drafter setup
@@ -18,6 +21,8 @@ import butterknife.ButterKnife;
  */
 public class FragmentDrafter extends Fragment{
     @BindView(R.id.drafting_start) Button startButton;
+    @BindView(R.id.pref_number_of_choices) SmallNumberPreference numberOfChoices;
+    @BindView(R.id.cb_reshuffle) CheckBox cbReshuffle;
 
     @Nullable
     @Override
@@ -31,10 +36,10 @@ public class FragmentDrafter extends Fragment{
                 startDrafting();
             }
         });
+        numberOfChoices.setKey(Pref.DRAFT_NUMBER_OF_CHOICES);
+        numberOfChoices.setText("Number of choices"); // TODO: why doesn't android:key and android:text work in resource xml?
         return view;
     }
-
-    // TODO: move the code below to DraftingActivity
 
     private void startDrafting(){
         Intent startDrafting = new Intent(getContext(), ActivityDrafter.class);

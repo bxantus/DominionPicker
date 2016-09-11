@@ -46,7 +46,8 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         // listen for card clicks
         cardsAdapter.setListener(this);
 
-        // start shuffling of 3* kingdom cards required
+        // start shuffling of DRAFT_NUMBER_OF_CHOICES * kingdom cards required
+        cardsToDraft = Pref.get(this).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
         DraftShufflerTask shuffleTask = new DraftShufflerTask();
         shuffleTask.execute();
 
@@ -57,7 +58,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     }
 
     final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
-    final int cardsToDraft = 3; // TODO: make this a setting in FragmentDrafter
+    int cardsToDraft;
     int draftIndex = 0; // the index of the currently drafted card
     CardCollection draftCandidates; // current draft candidates
     CardCollection draftSource;
