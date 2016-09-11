@@ -3,11 +3,12 @@
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent">
-
-    <Button
-            android:id="@+id/drafting_start"
+    <android.support.v7.widget.RecyclerView
+            android:id="@android:id/list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Start drafting"
+            android:layout_gravity="fill_vertical"
     />
+
+    <!-- TODO: add currently picked elements -->
 </LinearLayout>

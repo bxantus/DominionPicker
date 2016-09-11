@@ -25,6 +25,9 @@
         <activity android:name=".ActivityMarket"
             android:label="@string/market_title" />
 
+        <activity android:name=".ActivityDrafter"
+                  android:label="Drafter" />
+
         <activity android:name=".settings.ActivityOptions"
             android:label="@string/options" />
 
