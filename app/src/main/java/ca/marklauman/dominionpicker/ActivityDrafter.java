@@ -53,17 +53,29 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         cardPicks.setAdapter(picksAdapter);
         cardPicks.setLayoutManager(new LinearLayoutManager(this));
 
-        // start shuffling of DRAFT_NUMBER_OF_CHOICES * kingdom cards required
-        cardsToDraft = Pref.get(this).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
-        DraftShufflerTask shuffleTask = new DraftShufflerTask();
-        shuffleTask.execute();
+        // extract current state form savedInstanceState
+        if (savedInstanceState != null) {
+            draftIndex = savedInstanceState.getInt("draft_index", 0);
+            draftResults = savedInstanceState.getParcelable("draft_results");
+            draftSource = savedInstanceState.getParcelable("draft_source");
 
-        // TODO: extract current state form savedInstanceState
-
-        draftResults = new ArrayList<>();
-        draftIndex = 0;
-
+            nextDraftCandidates(); // show draft candidates
+            updateDraftResults();  // show current results
+        } else { // no saved state
+            draftResults = new CardCollection();
+            // start shuffling of DRAFT_NUMBER_OF_CHOICES * kingdom cards required
+            DraftShufflerTask shuffleTask = new DraftShufflerTask();
+            shuffleTask.execute();
+        }
         updatePickProgress();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("draft_index", draftIndex);
+        outState.putParcelable("draft_results", draftResults);
+        outState.putParcelable("draft_source", draftSource);
     }
 
     private void updatePickProgress() {
@@ -71,11 +83,11 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     }
 
     final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
-    int cardsToDraft;
+    int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
     int draftIndex = 0; // the index of the currently drafted card
     CardCollection draftCandidates; // current draft candidates
     CardCollection draftSource;
-    List<Long> draftResults; // draft results are stored in this collection
+    CardCollection draftResults; // draft results are stored in this collection
 
     void supplyReady(SupplyShuffler.ShuffleSupply supply) {
         draftSource = new CardCollection(supply.getCards());
@@ -103,17 +115,17 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     void onCandidateSelected(int idx) {
         // add selected to the result supply
-        draftResults.add(choicesAdapter.getItemId(idx));
+        draftResults.cards.add(choicesAdapter.getItemId(idx));
         choicesAdapter.changeCursor(null);
 
         // check if all cards are drafted
-        if (draftResults.size() == numKingdoms) {
+        if (draftResults.cards.size() == numKingdoms) {
             // TODO: extract common notification code (currently this is copied from SupplyShufflerTask
             long time = Calendar.getInstance().getTimeInMillis();
             ContentValues values = new ContentValues();
             values.putNull(DataDb._H_NAME);
             values.put(DataDb._H_TIME,      time);
-            values.put(DataDb._H_CARDS,     Utils.join(",", draftResults));
+            values.put(DataDb._H_CARDS,     Utils.join(",", draftResults.cards));
             values.put(DataDb._H_BANE,      -1);
             values.put(DataDb._H_HIGH_COST, false);
             values.put(DataDb._H_SHELTERS,  false);
@@ -134,12 +146,16 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
             nextDraftCandidates();
             updatePickProgress();
             // update picks
-            getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_PICKS, null, new LoaderManager.LoaderCallbacks<Cursor>() {
-                @Override public Loader<Cursor> onCreateLoader(int id, Bundle args) { return CardCollection.createLoader(new CardCollection(draftResults), ActivityDrafter.this);  }
-                @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) { picksAdapter.changeCursor(data); }
-                @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop*/  }
-            });
+            updateDraftResults();
         }
+    }
+
+    private void updateDraftResults() {
+        getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_PICKS, null, new LoaderManager.LoaderCallbacks<Cursor>() {
+            @Override public Loader<Cursor> onCreateLoader(int id, Bundle args) { return CardCollection.createLoader(draftResults, ActivityDrafter.this);  }
+            @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) { picksAdapter.changeCursor(data); }
+            @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop*/  }
+        });
     }
 
     private class DraftShufflerTask extends AsyncTask<Void, Void, SupplyShuffler.ShuffleSupply> {
