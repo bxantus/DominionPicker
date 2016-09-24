@@ -74,7 +74,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         textPickProgress.setText(String.format("(%d/%d)", draftIndex, numKingdoms));
     }
 
-    private final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
+    private int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
     private final int numEvents = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_EVENTS, 2);
     private int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
     private int draftIndex = 0; // the index of the currently drafted card
@@ -108,7 +108,11 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     private void onCandidateSelected(int idx) {
         // add selected to the result supply
-        draftResults.addKingdom(choicesAdapter.getItemId(idx), choicesAdapter.getCost(idx), choicesAdapter.getSetId(idx), false);
+        if (choicesAdapter.isSpecialCard(idx)) {
+            ++numKingdoms; // selecting a special card increases the number of cards picked by one
+            draftResults.addSpecial(choicesAdapter.getItemId(idx), false);
+        }
+        else draftResults.addKingdom(choicesAdapter.getItemId(idx), choicesAdapter.getCost(idx), choicesAdapter.getSetId(idx), false);
         choicesAdapter.changeCursor(null);
 
         // check if all cards are drafted
@@ -136,10 +140,10 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     private class DraftShufflerTask extends AsyncTask<Void, Void, SupplyShuffler.ShuffleSupply> {
         @Override
         protected SupplyShuffler.ShuffleSupply doInBackground(Void... voids) {
-            SharedPreferences pref = Pref.get(Pref.getAppContext());
+            final int numSpecial = numEvents;
+            // events are additional cards, so we must present more kingdom cards, if events are picked
+            final int numKingdomsToDraft = numKingdoms * cardsToDraft + (numEvents * cardsToDraft - numEvents);
 
-            final int numKingdomsToDraft = numKingdoms * cardsToDraft;
-            final int numSpecial = 0; // TODO: decide how to draft special cards (events/landmarks), have to check the rules
             SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numSpecial, new SupplyShuffler.KingdomInsertAllStrategy());
 
             SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);

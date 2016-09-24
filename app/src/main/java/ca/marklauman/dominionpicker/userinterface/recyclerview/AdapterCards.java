@@ -89,6 +89,8 @@ public class AdapterCards extends BasicTouchAdapter<AdapterCards.ViewHolder> {
     int _requires;
     /** Index of the landmark card type */
     int _type_landmark;
+    /** Index of the event card type */
+    int _type_event;
 
 
     /** Listener to be notified if a card is clicked. */
@@ -148,6 +150,7 @@ public class AdapterCards extends BasicTouchAdapter<AdapterCards.ViewHolder> {
         _type = cursor.getColumnIndex(TableCard._TYPE);
         _requires = cursor.getColumnIndex(TableCard._REQ);
         _type_landmark = cursor.getColumnIndex(TableCard._TYPE_LANDMARK);
+        _type_event = cursor.getColumnIndex(TableCard._TYPE_EVENT);
         notifyDataSetChanged();
     }
 
@@ -233,6 +236,12 @@ public class AdapterCards extends BasicTouchAdapter<AdapterCards.ViewHolder> {
     public int getSetId(int position) {
         mCursor.moveToPosition(position);
         return mCursor.getInt(_set_id);
+    }
+
+    /// @return true if the card at position is a landmark or event card
+    public boolean isSpecialCard(int position) {
+        mCursor.moveToPosition(position);
+        return mCursor.getInt(_type_landmark) != 0 || mCursor.getInt(_type_event) != 0;
     }
 
     /** Launch the details panel for a specified card */

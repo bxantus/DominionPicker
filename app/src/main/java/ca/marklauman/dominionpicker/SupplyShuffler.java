@@ -149,6 +149,7 @@ class SupplyShuffler {
         public int minKingdom;
         /** Maximum amount of special cards allowed. */
         public final int maxSpecial;
+        private int numSpecials = 0; // special cards added (events, and landmarks)
         /** If this is a high cost game or not. */
         public boolean high_cost = false;
         /** If this game uses shelters or not. */
@@ -161,8 +162,6 @@ class SupplyShuffler {
 
         /** Kingdom cards in this supply */
         private final CardCollection kingdom;
-        /** Special cards in this supply that are not kingdom cards. */
-        private final CardCollection special;
 
         /** Id for a possible bane card */
         private long bane = -1L;
@@ -174,8 +173,7 @@ class SupplyShuffler {
             minKingdom = numKingdoms;
             maxSpecial = numSpecials;
             kingdom = new CardCollection();
-            special = new CardCollection();
-            costCard = (int)(Math.random() * minKingdom)+1;
+            costCard = (int)(Math.random() * (minKingdom))+1;
             shelterCard = (int)(Math.random() * minKingdom)+1;
 
             this.insertStrategy = insertStrategy;
@@ -184,21 +182,22 @@ class SupplyShuffler {
 
         /** Add an event to the supply */
         public void addSpecial(long id, boolean required) {
-            if(required) special.cards.add(id);
-            else if(special.cards.size() < maxSpecial)
-                special.cards.add(id);
+            if(required || numSpecials < maxSpecial) {
+                kingdom.cards.add(id);
+                ++numSpecials;
+            }
         }
 
 
         /** Check if this shuffler needs a kingdom card */
         public boolean needsKingdom() {
-            return kingdom.cards.size() < minKingdom;
+            return kingdom.cards.size() - numSpecials < minKingdom;
         }
 
 
         /** Add a kingdom card to the supply */
         public void addKingdom(long id, String cost, int set_id, boolean required) {
-            if(!required && minKingdom <= kingdom.cards.size())
+            if(!required && !needsKingdom())
                 return;
             if (id == TableCard.ID_YOUNG_WITCH) waitingForBane = true; // YW will require a bane
 
@@ -206,22 +205,18 @@ class SupplyShuffler {
                 kingdom.cards.add(id);
 
             // determine if this is a high cost/shelters game
-            if(kingdom.cards.size() == costCard)
+            if(kingdom.cards.size() - numSpecials == costCard)
                 high_cost = set_id == TableCard.SET_PROSPERITY;
-            if(kingdom.cards.size() == shelterCard)
+            if(kingdom.cards.size() - numSpecials == shelterCard)
                 shelters = set_id == TableCard.SET_DARK_AGES;
         }
 
 
         /** Get all cards in this supply */
         public long[] getCards() {
-            long[] res = new long[kingdom.cards.size() + special.cards.size()];
+            long[] res = new long[kingdom.cards.size()];
             int i = 0;
             for(Long card : kingdom.cards) {
-                res[i] = card;
-                i++;
-            }
-            for(Long card : special.cards) {
                 res[i] = card;
                 i++;
             }
@@ -261,8 +256,7 @@ class SupplyShuffler {
             bane = parcel.readLong();
             waitingForBane = parcel.readInt() != 0;
 
-            kingdom = parcel.readParcelable(null);
-            special = parcel.readParcelable(null);
+            kingdom = parcel.readParcelable(getClass().getClassLoader());
             insertStrategy = new KingdomInsertAllStrategy(); // default to insert all strategy
         }
 
@@ -279,7 +273,6 @@ class SupplyShuffler {
             parcel.writeInt(waitingForBane ? 1 : 0);
 
             parcel.writeParcelable(kingdom, flags);
-            parcel.writeParcelable(special, flags);
         }
 
         @Override
