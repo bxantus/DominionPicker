@@ -1,6 +1,5 @@
 package ca.marklauman.dominionpicker;
 
-import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -47,7 +46,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         // extract current state form savedInstanceState
         if (savedInstanceState != null) {
             draftIndex = savedInstanceState.getInt("draft_index", 0);
-
+            cardsNeeded = savedInstanceState.getInt("cards_needed", numKingdoms);
             draftResults = savedInstanceState.getParcelable("draft_results");
             draftSource = savedInstanceState.getParcelable("draft_source");
 
@@ -66,15 +65,17 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt("draft_index", draftIndex);
+        outState.putInt("cards_needed", cardsNeeded);
         outState.putParcelable("draft_results", draftResults);
         outState.putParcelable("draft_source", draftSource);
     }
 
     private void updatePickProgress() {
-        textPickProgress.setText(String.format("(%d/%d)", draftIndex, numKingdoms));
+        textPickProgress.setText(String.format("(%d/%d)", draftIndex, cardsNeeded));
     }
 
-    private int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
+    private final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
+    private int cardsNeeded = numKingdoms; // total number of cards needed (if landmarks or events get selected, this can increase)
     private final int numEvents = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_EVENTS, 2);
     private int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
     private int draftIndex = 0; // the index of the currently drafted card
@@ -109,7 +110,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     private void onCandidateSelected(int idx) {
         // add selected to the result supply
         if (choicesAdapter.isSpecialCard(idx)) {
-            ++numKingdoms; // selecting a special card increases the number of cards picked by one
+            ++cardsNeeded; // selecting a special card increases the number of cards picked by one
             draftResults.addSpecial(choicesAdapter.getItemId(idx), false);
         }
         else draftResults.addKingdom(choicesAdapter.getItemId(idx), choicesAdapter.getCost(idx), choicesAdapter.getSetId(idx), false);
@@ -140,11 +141,10 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     private class DraftShufflerTask extends AsyncTask<Void, Void, SupplyShuffler.ShuffleSupply> {
         @Override
         protected SupplyShuffler.ShuffleSupply doInBackground(Void... voids) {
-            final int numSpecial = numEvents;
             // events are additional cards, so we must present more kingdom cards, if events are picked
             final int numKingdomsToDraft = numKingdoms * cardsToDraft + (numEvents * cardsToDraft - numEvents);
 
-            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numSpecial, new SupplyShuffler.KingdomInsertAllStrategy());
+            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numEvents, new SupplyShuffler.KingdomInsertAllStrategy());
 
             SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
             if (result == SupplyShuffler.ShuffleResult.SUCCESS) return supply;
