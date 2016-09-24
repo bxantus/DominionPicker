@@ -13,6 +13,13 @@
             android:text="Number of choices"
             android:id="@+id/pref_number_of_choices"
     />
+    <ca.marklauman.tools.preferences.SmallNumberPreference
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:key="draft_number_of_picks"
+            android:text="Number of picks"
+            android:id="@+id/pref_number_of_picks"
+    />
     <CheckBox
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

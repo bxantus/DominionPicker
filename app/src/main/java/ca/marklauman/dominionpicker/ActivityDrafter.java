@@ -71,12 +71,13 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     }
 
     private void updatePickProgress() {
-        textPickProgress.setText(String.format("(%d/%d)", draftIndex, cardsNeeded));
+        textPickProgress.setText(String.format("(%d/%d)", draftResults.getNumberOfCards(), cardsNeeded));
     }
 
     private final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
     private int cardsNeeded = numKingdoms; // total number of cards needed (if landmarks or events get selected, this can increase)
     private final int numEvents = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_EVENTS, 2);
+    private final int autoPicks = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_PICKS, 0);
     private int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
     private int draftIndex = 0; // the index of the currently drafted card
     private CardCollection draftCandidates; // current draft candidates
@@ -85,7 +86,41 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     private void supplyReady(SupplyShuffler.ShuffleSupply supply) {
         draftSource = new CardCollection(supply.getCards());
-        nextDraftCandidates();
+        // make auto picks
+        if (autoPicks > 0) {
+            // have to load cursor first with card infos
+            getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_CHOICES, null, new LoaderManager.LoaderCallbacks<Cursor>() {
+                    @Override
+                    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+                        CardCollection autopickedCards = draftSource.subCollection(0, autoPicks);
+                        return CardCollection.createLoader(autopickedCards, ActivityDrafter.this);
+                    }
+
+                    @Override
+                    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+                        AdapterCards cardInfo = new AdapterCards(cardPicks); // TODO: kind of hack, would need something like the adapter, just handling card information. This could be extracted from the adapter
+                        cardInfo.changeCursor(data);
+                        for (int i = 0; i < autoPicks; ++i) {
+                            if (cardInfo.isSpecialCard(i)) {
+                                draftResults.addSpecial(cardInfo.getItemId(i), false);
+                                ++cardsNeeded;
+                            }
+                            else draftResults.addKingdom(cardInfo.getItemId(i), cardInfo.getCost(i), cardInfo.getSetId(i), false);
+                        }
+                        draftIndex = autoPicks;
+                        nextDraftCandidates();
+                        updatePickProgress();
+                        // update picks
+                        updateDraftResults();
+                    }
+
+                    @Override
+                    public void onLoaderReset(Loader<Cursor> loader) { /* nop */    }
+                }
+            );
+
+        } else nextDraftCandidates();
+
     }
 
     private void nextDraftCandidates() {
@@ -93,7 +128,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_CHOICES, null, new LoaderManager.LoaderCallbacks<Cursor>() {
             @Override
             public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-                final int rangeStart = draftIndex * cardsToDraft;
+                final int rangeStart = draftIndex;
                 draftCandidates = draftSource.subCollection(rangeStart, rangeStart + cardsToDraft);
                 return CardCollection.createLoader(draftCandidates, ActivityDrafter.this);
             }
@@ -122,7 +157,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
             // drafter is done, remove it from activity stack
             finish();
         } else { // if not, show the next N cards
-            draftIndex++;
+            draftIndex += cardsToDraft;
             nextDraftCandidates();
             updatePickProgress();
             // update picks
@@ -142,7 +177,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         @Override
         protected SupplyShuffler.ShuffleSupply doInBackground(Void... voids) {
             // events are additional cards, so we must present more kingdom cards, if events are picked
-            final int numKingdomsToDraft = numKingdoms * cardsToDraft + (numEvents * cardsToDraft - numEvents);
+            final int numKingdomsToDraft = autoPicks + (numKingdoms - autoPicks) * cardsToDraft + (numEvents * cardsToDraft - numEvents);
 
             SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numEvents, new SupplyShuffler.KingdomInsertAllStrategy());
 

@@ -22,6 +22,7 @@ import ca.marklauman.tools.preferences.SmallNumberPreference;
 public class FragmentDrafter extends Fragment{
     @BindView(R.id.drafting_start) Button startButton;
     @BindView(R.id.pref_number_of_choices) SmallNumberPreference numberOfChoices;
+    @BindView(R.id.pref_number_of_picks) SmallNumberPreference numberOfPicks;
     @BindView(R.id.cb_reshuffle) CheckBox cbReshuffle;
 
     @Nullable
@@ -36,8 +37,11 @@ public class FragmentDrafter extends Fragment{
                 startDrafting();
             }
         });
+        // TODO: why doesn't android:key and android:text work in resource xml?
         numberOfChoices.setKey(Pref.DRAFT_NUMBER_OF_CHOICES);
-        numberOfChoices.setText("Number of choices"); // TODO: why doesn't android:key and android:text work in resource xml?
+        numberOfChoices.setText("Number of choices");
+        numberOfPicks.setKey(Pref.DRAFT_NUMBER_OF_PICKS);
+        numberOfPicks.setText("Autopicks");
         return view;
     }
 

@@ -49,6 +49,8 @@ public abstract class Pref implements OnSharedPreferenceChangeListener {
 
     /** Number of cards(choices) to present for each draft step*/
     public static final String DRAFT_NUMBER_OF_CHOICES = "draft_number_of_choices";
+    /** Number of picks made automatically, before presenting drafter interface*/
+    public static final String DRAFT_NUMBER_OF_PICKS = "draft_number_of_picks";
     /** Filter used to provide the correct card translation for each set.
      *  This is computed from {@link #FILT_LANG} and {@link #APP_LANG}
      *  when those preferences change. */
@@ -298,6 +300,8 @@ public abstract class Pref implements OnSharedPreferenceChangeListener {
             edit.putInt(ACTIVE_TAB, res.getInteger(R.integer.def_tab));
         if (!prefs.contains(DRAFT_NUMBER_OF_CHOICES))
             edit.putInt(DRAFT_NUMBER_OF_CHOICES, 3);
+        if (!prefs.contains(DRAFT_NUMBER_OF_PICKS))
+            edit.putInt(DRAFT_NUMBER_OF_PICKS, 0);
         edit.commit();
     }
 

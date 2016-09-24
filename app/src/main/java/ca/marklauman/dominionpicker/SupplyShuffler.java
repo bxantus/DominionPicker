@@ -223,6 +223,10 @@ class SupplyShuffler {
             return res;
         }
 
+        public int getNumberOfCards() {
+            return kingdom.cards.size();
+        }
+
         /** Get the bane card of this supply */
         public long getBane() {
             return bane;
@@ -256,6 +260,7 @@ class SupplyShuffler {
             bane = parcel.readLong();
             waitingForBane = parcel.readInt() != 0;
 
+            numSpecials = parcel.readInt();
             kingdom = parcel.readParcelable(getClass().getClassLoader());
             insertStrategy = new KingdomInsertAllStrategy(); // default to insert all strategy
         }
@@ -272,6 +277,7 @@ class SupplyShuffler {
             parcel.writeLong(bane);
             parcel.writeInt(waitingForBane ? 1 : 0);
 
+            parcel.writeInt(numSpecials);
             parcel.writeParcelable(kingdom, flags);
         }
 
