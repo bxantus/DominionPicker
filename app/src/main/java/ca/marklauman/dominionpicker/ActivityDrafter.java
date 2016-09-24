@@ -1,7 +1,5 @@
 package ca.marklauman.dominionpicker;
 
-import android.content.ContentValues;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.AsyncTask;
@@ -15,16 +13,9 @@ import android.support.v7.widget.RecyclerView;
 import android.widget.TextView;
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import ca.marklauman.dominionpicker.database.DataDb;
 import ca.marklauman.dominionpicker.database.LoaderId;
-import ca.marklauman.dominionpicker.database.Provider;
 import ca.marklauman.dominionpicker.settings.Pref;
 import ca.marklauman.dominionpicker.userinterface.recyclerview.AdapterCards;
-import ca.marklauman.tools.Utils;
-
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
 
 /**
  * @author Botond Xantus
@@ -56,13 +47,14 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         // extract current state form savedInstanceState
         if (savedInstanceState != null) {
             draftIndex = savedInstanceState.getInt("draft_index", 0);
+
             draftResults = savedInstanceState.getParcelable("draft_results");
             draftSource = savedInstanceState.getParcelable("draft_source");
 
             nextDraftCandidates(); // show draft candidates
             updateDraftResults();  // show current results
         } else { // no saved state
-            draftResults = new CardCollection();
+            draftResults = new SupplyShuffler.ShuffleSupply(numKingdoms, numEvents, new SupplyShuffler.KingdomInsertAllStrategy());
             // start shuffling of DRAFT_NUMBER_OF_CHOICES * kingdom cards required
             DraftShufflerTask shuffleTask = new DraftShufflerTask();
             shuffleTask.execute();
@@ -82,19 +74,20 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         textPickProgress.setText(String.format("(%d/%d)", draftIndex, numKingdoms));
     }
 
-    final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
-    int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
-    int draftIndex = 0; // the index of the currently drafted card
-    CardCollection draftCandidates; // current draft candidates
-    CardCollection draftSource;
-    CardCollection draftResults; // draft results are stored in this collection
+    private final int numKingdoms = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_SUPPLY, 10);
+    private final int numEvents = Pref.get(Pref.getAppContext()).getInt(Pref.LIMIT_EVENTS, 2);
+    private int cardsToDraft = Pref.get(Pref.getAppContext()).getInt(Pref.DRAFT_NUMBER_OF_CHOICES, 3);
+    private int draftIndex = 0; // the index of the currently drafted card
+    private CardCollection draftCandidates; // current draft candidates
+    private CardCollection draftSource;
+    private SupplyShuffler.ShuffleSupply draftResults; // draft results are stored in this collection
 
-    void supplyReady(SupplyShuffler.ShuffleSupply supply) {
+    private void supplyReady(SupplyShuffler.ShuffleSupply supply) {
         draftSource = new CardCollection(supply.getCards());
         nextDraftCandidates();
     }
 
-    void nextDraftCandidates() {
+    private void nextDraftCandidates() {
         // show the next 3 cards of the result
         getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_CHOICES, null, new LoaderManager.LoaderCallbacks<Cursor>() {
             @Override
@@ -113,32 +106,14 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         onCandidateSelected(position);
     }
 
-    void onCandidateSelected(int idx) {
+    private void onCandidateSelected(int idx) {
         // add selected to the result supply
-        draftResults.cards.add(choicesAdapter.getItemId(idx));
+        draftResults.addKingdom(choicesAdapter.getItemId(idx), choicesAdapter.getCost(idx), choicesAdapter.getSetId(idx), false);
         choicesAdapter.changeCursor(null);
 
         // check if all cards are drafted
-        if (draftResults.cards.size() == numKingdoms) {
-            // TODO: extract common notification code (currently this is copied from SupplyShufflerTask
-            long time = Calendar.getInstance().getTimeInMillis();
-            ContentValues values = new ContentValues();
-            values.putNull(DataDb._H_NAME);
-            values.put(DataDb._H_TIME,      time);
-            values.put(DataDb._H_CARDS,     Utils.join(",", draftResults.cards));
-            values.put(DataDb._H_BANE,      -1);
-            values.put(DataDb._H_HIGH_COST, false);
-            values.put(DataDb._H_SHELTERS,  false);
-            Pref.getAppContext()
-                    .getContentResolver()
-                    .insert(Provider.URI_HIST, values);
-
-            // let the listeners know the result
-            Intent msg = new Intent(SupplyShufflerTask.MSG_INTENT);
-            msg.putExtra(SupplyShufflerTask.MSG_RES, SupplyShufflerTask.RES_OK);
-            msg.putExtra(SupplyShufflerTask.MSG_SUPPLY_ID, time);
-            SupplyShufflerTask.sendMsg(msg);
-
+        if (!draftResults.needsKingdom()) {
+            SupplyShufflerTask.successfulResult(draftResults);
             // drafter is done, remove it from activity stack
             finish();
         } else { // if not, show the next N cards
@@ -152,7 +127,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
     private void updateDraftResults() {
         getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_PICKS, null, new LoaderManager.LoaderCallbacks<Cursor>() {
-            @Override public Loader<Cursor> onCreateLoader(int id, Bundle args) { return CardCollection.createLoader(draftResults, ActivityDrafter.this);  }
+            @Override public Loader<Cursor> onCreateLoader(int id, Bundle args) { return CardCollection.createLoader(new CardCollection(draftResults.getCards()), ActivityDrafter.this);  }
             @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) { picksAdapter.changeCursor(data); }
             @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop*/  }
         });
@@ -165,7 +140,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
             final int numKingdomsToDraft = numKingdoms * cardsToDraft;
             final int numSpecial = 0; // TODO: decide how to draft special cards (events/landmarks), have to check the rules
-            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numSpecial);
+            SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numSpecial, new SupplyShuffler.KingdomInsertAllStrategy());
 
             SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
             if (result == SupplyShuffler.ShuffleResult.SUCCESS) return supply;

@@ -49,12 +49,12 @@ public class SupplyShufflerTask extends AsyncTask<Void, Void, Void> {
         SharedPreferences pref = Pref.get(Pref.getAppContext());
         final int minKingdom = pref.getInt(Pref.LIMIT_SUPPLY, 10);
         final int maxSpecial = pref.getInt(Pref.LIMIT_EVENTS, 2);
-        ShuffleSupply supply = new ShuffleSupply(minKingdom, maxSpecial);
+        ShuffleSupply supply = new ShuffleSupply(minKingdom, maxSpecial, new SupplyShuffler.KingdomInsertWithYWStrategy());
 
         ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
         switch (result)
         {
-            case SUCCESS:   return successfulResult(supply);
+            case SUCCESS:   successfulResult(supply); return null;
             case CANCELLED: return cancelResult();
         }
 
@@ -82,7 +82,7 @@ public class SupplyShufflerTask extends AsyncTask<Void, Void, Void> {
 
     /** Generating the supply was successful.
      *  Write the result into the history database and tell the app its id number */
-    private Void successfulResult(ShuffleSupply supply) {
+    public static void successfulResult(ShuffleSupply supply) {
         // Insert the new supply
         long time = Calendar.getInstance().getTimeInMillis();
         ContentValues values = new ContentValues();
@@ -100,7 +100,7 @@ public class SupplyShufflerTask extends AsyncTask<Void, Void, Void> {
         Intent msg = new Intent(MSG_INTENT);
         msg.putExtra(MSG_RES, RES_OK);
         msg.putExtra(MSG_SUPPLY_ID, time);
-        return sendMsg(msg);
+        sendMsg(msg);
     }
 
     /** Broadcast a given message back to the activity */

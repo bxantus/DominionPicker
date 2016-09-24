@@ -225,6 +225,15 @@ public class AdapterCards extends BasicTouchAdapter<AdapterCards.ViewHolder> {
         return mCursor.getString(_name);
     }
 
+    public String getCost(int position) {
+        mCursor.moveToPosition(position);
+        return mCursor.getString(_cost);
+    }
+
+    public int getSetId(int position) {
+        mCursor.moveToPosition(position);
+        return mCursor.getInt(_set_id);
+    }
 
     /** Launch the details panel for a specified card */
     public static void launchDetails(Context context, long cardId) {
