@@ -13,6 +13,7 @@ import android.widget.TextView;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import ca.marklauman.dominionpicker.database.LoaderId;
+import ca.marklauman.dominionpicker.database.TableCard;
 import ca.marklauman.dominionpicker.settings.Pref;
 import ca.marklauman.dominionpicker.userinterface.recyclerview.AdapterCards;
 
@@ -23,6 +24,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     @BindView(R.id.list_choices) RecyclerView cardChoices;
     @BindView(R.id.list_picks) RecyclerView cardPicks;
     @BindView(R.id.pick_progress) TextView textPickProgress;
+    @BindView(R.id.pick_title) TextView textPickTitle; // title of card to pick
     private AdapterCards choicesAdapter;
     private AdapterCards picksAdapter;
 
@@ -49,8 +51,12 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
             cardsNeeded = savedInstanceState.getInt("cards_needed", numKingdoms);
             draftResults = savedInstanceState.getParcelable("draft_results");
             draftSource = savedInstanceState.getParcelable("draft_source");
-
-            nextDraftCandidates(); // show draft candidates
+            selectingBane = savedInstanceState.getBoolean("selecting_bane");
+            if (selectingBane) {
+                baneCards = savedInstanceState.getParcelable("bane_cards");
+                baneCardsReady(baneCards);
+            }
+            else nextDraftCandidates(); // show draft candidates
             updateDraftResults();  // show current results
         } else { // no saved state
             draftResults = new SupplyShuffler.ShuffleSupply(numKingdoms, numEvents, new SupplyShuffler.KingdomInsertAllStrategy());
@@ -68,6 +74,8 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         outState.putInt("cards_needed", cardsNeeded);
         outState.putParcelable("draft_results", draftResults);
         outState.putParcelable("draft_source", draftSource);
+        outState.putBoolean("selecting_bane", selectingBane);
+        if (selectingBane) outState.putParcelable("bane_cards", baneCards);
     }
 
     private void updatePickProgress() {
@@ -101,11 +109,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
                         AdapterCards cardInfo = new AdapterCards(cardPicks); // TODO: kind of hack, would need something like the adapter, just handling card information. This could be extracted from the adapter
                         cardInfo.changeCursor(data);
                         for (int i = 0; i < autoPicks; ++i) {
-                            if (cardInfo.isSpecialCard(i)) {
-                                draftResults.addSpecial(cardInfo.getItemId(i), false);
-                                ++cardsNeeded;
-                            }
-                            else draftResults.addKingdom(cardInfo.getItemId(i), cardInfo.getCost(i), cardInfo.getSetId(i), false);
+                            addCardToResults(cardInfo, i);
                         }
                         draftIndex = autoPicks;
                         nextDraftCandidates();
@@ -142,20 +146,37 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         onCandidateSelected(position);
     }
 
+    private void addCardToResults(AdapterCards cards, int idx) {
+        if (cards.isSpecialCard(idx)) {
+            ++cardsNeeded; // selecting a special card increases the number of cards picked by one
+            draftResults.addSpecial(cards.getItemId(idx), false);
+        }
+        else {
+            long cardId = cards.getItemId(idx);
+            if (cardId == TableCard.ID_YOUNG_WITCH) ++cardsNeeded; // extra bane card needed for YW
+            if (selectingBane) draftResults.setBane(cardId);
+            draftResults.addKingdom(cardId, cards.getCost(idx), cards.getSetId(idx), false);
+        }
+    }
+
     private void onCandidateSelected(int idx) {
         // add selected to the result supply
-        if (choicesAdapter.isSpecialCard(idx)) {
-            ++cardsNeeded; // selecting a special card increases the number of cards picked by one
-            draftResults.addSpecial(choicesAdapter.getItemId(idx), false);
-        }
-        else draftResults.addKingdom(choicesAdapter.getItemId(idx), choicesAdapter.getCost(idx), choicesAdapter.getSetId(idx), false);
+        addCardToResults(choicesAdapter, idx);
         choicesAdapter.changeCursor(null);
 
         // check if all cards are drafted
         if (!draftResults.needsKingdom()) {
-            SupplyShufflerTask.successfulResult(draftResults);
-            // drafter is done, remove it from activity stack
-            finish();
+            if (draftResults.waitingForBane()) {
+                // special case, bane card must be picked before finishing
+                new BaneShufflerTask().execute();
+                // update picks
+                updateDraftResults();
+                updatePickProgress();
+            } else { // done
+                SupplyShufflerTask.successfulResult(draftResults);
+                // drafter is done, remove it from activity stack
+                finish();
+            }
         } else { // if not, show the next N cards
             draftIndex += cardsToDraft;
             nextDraftCandidates();
@@ -193,4 +214,38 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
             supplyReady(shuffleSupply);
         }
     }
+
+    // Special handling for YoungWitch, bane cards should be selected
+    private boolean selectingBane = false;
+    private CardCollection baneCards = null;
+
+    private class BaneShufflerTask extends AsyncTask<Void, Void, SupplyShuffler.ShuffleSupply> {
+        @Override
+        protected SupplyShuffler.ShuffleSupply doInBackground(Void... voids) {
+            return SupplyShuffler.createSupplyWithBaneCards(cardsToDraft, draftResults.getCardCollection(), this);
+        }
+
+        @Override
+        protected void onPostExecute(SupplyShuffler.ShuffleSupply shuffleSupply) {
+            selectingBane = true;
+            baneCards = shuffleSupply.getCardCollection();
+            baneCardsReady(baneCards);
+        }
+    }
+
+    private void baneCardsReady(final CardCollection banes) {
+        getSupportLoaderManager().restartLoader(LoaderId.DRAFT_CARD_CHOICES, null, new LoaderManager.LoaderCallbacks<Cursor>() {
+            @Override
+            public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+                return CardCollection.createLoader(banes, ActivityDrafter.this);
+            }
+            @Override public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+                choicesAdapter.changeCursor(data);
+                // update pick text
+                textPickTitle.setText("Pick a bane"); // TODO: use string resource instead
+            }
+            @Override public void onLoaderReset(Loader<Cursor> loader) { /*nop */ }
+        });
+    }
+
 }

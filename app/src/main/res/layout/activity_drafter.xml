@@ -16,6 +16,7 @@
                   android:textColor="@color/colorPrimaryDark"
                   android:background="@color/background"
                   android:text="Pick one"
+                  android:id="@+id/pick_title"
         />
 
         <android.support.v7.widget.RecyclerView

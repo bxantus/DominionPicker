@@ -10,6 +10,7 @@ import android.support.annotation.Nullable;
 import ca.marklauman.dominionpicker.database.Provider;
 import ca.marklauman.dominionpicker.database.TableCard;
 import ca.marklauman.dominionpicker.settings.Pref;
+import ca.marklauman.tools.Utils;
 
 
 /**
@@ -63,6 +64,17 @@ class SupplyShuffler {
         else return ShuffleResult.FAILED;
     }
 
+    /// fill the provided supply only with eligible bane cards numCards in size
+    /// @param cardsToExclude the cards to exclude from the search (dor ex. current picks)
+    static ShuffleSupply createSupplyWithBaneCards(int numCards, CardCollection cardsToExclude, @Nullable AsyncTask<?, ?, ?> task) {
+        ShuffleSupply result = new ShuffleSupply(numCards, 0, new KingdomInsertOnlyBaneCardsStrategy());
+        SharedPreferences pref = Pref.get(Pref.getAppContext());
+        String filt_pre = FragmentPicker.getFilter(pref);
+
+        String filt_excluded = TableCard._ID+" NOT IN ("+ Utils.join(",", cardsToExclude.cards) +")";
+        loadCards(result, joinFilters(filt_pre, filt_excluded), false, task);
+        return result;
+    }
 
     /** Joins a collection of filters together with AND statements */
     private static String joinFilters(String... filters) {
@@ -227,6 +239,8 @@ class SupplyShuffler {
             return kingdom.cards.size();
         }
 
+        public CardCollection getCardCollection() { return kingdom; }
+
         /** Get the bane card of this supply */
         public long getBane() {
             return bane;
@@ -332,6 +346,13 @@ class SupplyShuffler {
                     supply.addKingdom(TableCard.ID_YOUNG_WITCH, "4", 3, true);
             }
             return true;
+        }
+    }
+
+    static class KingdomInsertOnlyBaneCardsStrategy implements IKingdomInsertStrategy {
+        @Override
+        public boolean handleKingdomInsertion(ShuffleSupply supply, long id, String cost, int set_id) {
+            return "2".equals(cost) || "3".equals(cost); // only cards with cost 2 or 3
         }
     }
 }
