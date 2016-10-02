@@ -1,11 +1,13 @@
 package ca.marklauman.dominionpicker;
 
+import android.content.Intent;
 import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -16,6 +18,8 @@ import ca.marklauman.dominionpicker.database.LoaderId;
 import ca.marklauman.dominionpicker.database.TableCard;
 import ca.marklauman.dominionpicker.settings.Pref;
 import ca.marklauman.dominionpicker.userinterface.recyclerview.AdapterCards;
+
+import static ca.marklauman.dominionpicker.SupplyShufflerTask.*;
 
 /**
  * @author Botond Xantus
@@ -195,23 +199,31 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
     }
 
     private class DraftShufflerTask extends AsyncTask<Void, Void, SupplyShuffler.ShuffleSupply> {
+        private int numKingdomsToDraft;
         @Override
         protected SupplyShuffler.ShuffleSupply doInBackground(Void... voids) {
             // events are additional cards, so we must present more kingdom cards, if events are picked
-            final int numKingdomsToDraft = autoPicks + (numKingdoms - autoPicks) * cardsToDraft + (numEvents * cardsToDraft - numEvents);
+            numKingdomsToDraft = autoPicks + (numKingdoms - autoPicks) * cardsToDraft + (numEvents * cardsToDraft - numEvents);
 
             SupplyShuffler.ShuffleSupply supply = new SupplyShuffler.ShuffleSupply(numKingdomsToDraft, numEvents, new SupplyShuffler.KingdomInsertAllStrategy());
 
             SupplyShuffler.ShuffleResult result = SupplyShuffler.fillSupply(supply, this);
-            if (result == SupplyShuffler.ShuffleResult.SUCCESS) return supply;
-            else return null;
+            return supply;
         }
 
         @Override
         protected void onPostExecute(SupplyShuffler.ShuffleSupply shuffleSupply) {
             // notify caller about the new fancy supply
-            // TODO: handle errors!
-            supplyReady(shuffleSupply);
+            if (shuffleSupply.getNumberOfCards() == numKingdomsToDraft)
+                supplyReady(shuffleSupply);
+            else {
+                // send not enough cards warning
+                Intent msg = new Intent(MSG_INTENT);
+                msg.putExtra(MSG_RES, RES_MORE);
+                msg.putExtra(MSG_SHORT, numKingdomsToDraft - shuffleSupply.getNumberOfCards());
+                LocalBroadcastManager.getInstance(ActivityDrafter.this).sendBroadcast(msg);
+                finish();
+            }
         }
     }
 
@@ -227,9 +239,17 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
 
         @Override
         protected void onPostExecute(SupplyShuffler.ShuffleSupply shuffleSupply) {
-            selectingBane = true;
-            baneCards = shuffleSupply.getCardCollection();
-            baneCardsReady(baneCards);
+            if (shuffleSupply.getNumberOfCards() == cardsToDraft) {
+                selectingBane = true;
+                baneCards = shuffleSupply.getCardCollection();
+                baneCardsReady(baneCards);
+            } else {
+                // show no bane warning
+                Intent msg = new Intent(MSG_INTENT);
+                msg.putExtra(MSG_RES, RES_NO_YW);
+                LocalBroadcastManager.getInstance(ActivityDrafter.this).sendBroadcast(msg);
+                finish();
+            }
         }
     }
 
