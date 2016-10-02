@@ -220,7 +220,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
                 // send not enough cards warning
                 Intent msg = new Intent(MSG_INTENT);
                 msg.putExtra(MSG_RES, RES_MORE);
-                msg.putExtra(MSG_SHORT, numKingdomsToDraft - shuffleSupply.getNumberOfCards());
+                msg.putExtra(MSG_SHORT, String.format("%d/%d", shuffleSupply.getNumberOfCards(), numKingdomsToDraft));
                 LocalBroadcastManager.getInstance(ActivityDrafter.this).sendBroadcast(msg);
                 finish();
             }
