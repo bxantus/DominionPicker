@@ -214,7 +214,7 @@ public class ActivityDrafter extends AppCompatActivity  implements AdapterCards.
         @Override
         protected void onPostExecute(SupplyShuffler.ShuffleSupply shuffleSupply) {
             // notify caller about the new fancy supply
-            if (shuffleSupply.getNumberOfCards() == numKingdomsToDraft)
+            if (shuffleSupply.getNumberOfCards() >= numKingdomsToDraft) // there could be more cards because of the selected landmarks
                 supplyReady(shuffleSupply);
             else {
                 // send not enough cards warning
