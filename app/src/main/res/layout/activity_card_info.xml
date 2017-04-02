@@ -69,18 +69,26 @@
             android:layout_toEndOf="@id/card_color"
             android:layout_above="@id/card_type" />
 
-        <ca.marklauman.dominionpicker.userinterface.InfoTextView
-            android:id="@android:id/text1"
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingLeft="32dp"
-            android:paddingRight="32dp"
-            android:gravity="center"
             android:layout_toRightOf="@id/card_color"
             android:layout_toEndOf="@id/card_color"
             android:layout_above="@id/bottomDiv"
-            android:focusable="true" />
+
+            >
+            <ca.marklauman.dominionpicker.userinterface.InfoTextView
+                android:id="@android:id/text1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:focusable="true"
+                android:paddingTop="45dp"
+                android:paddingLeft="32dp"
+                android:paddingRight="32dp"
+            />
+        </ScrollView>
 
         <LinearLayout android:id="@+id/card_no_info"
             android:layout_width="match_parent"
